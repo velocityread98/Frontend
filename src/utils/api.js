@@ -8,7 +8,6 @@ function getApiBaseUrl() {
   
   // If we're in production (deployed to Azure Static Web Apps)
   if (hostname.includes('azurestaticapps.net')) {
-    console.log('🌐 Production environment detected - using linked backend')
     // Use relative URLs - the backend is linked to the static web app
     return ''
   }
@@ -20,7 +19,6 @@ function getApiBaseUrl() {
 }
 
 const API_BASE_URL = getApiBaseUrl()
-console.log('🔧 API Base URL:', API_BASE_URL || 'relative URLs')
 
 /**
  * Make authenticated API calls to the backend
