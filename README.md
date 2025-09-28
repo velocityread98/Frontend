@@ -25,7 +25,7 @@ Output goes to `dist/`, suitable for Azure Static Web Apps.
 
 ## Customize
 - Edit `src/App.jsx` for content and layout
-- Edit `src/styles.css` for colors/spacing
+- Edit `src/styles.css` for colors/spacing. 
 
 ## Authentication (Clerk)
 
