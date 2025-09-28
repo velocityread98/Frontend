@@ -85,3 +85,69 @@ export async function getCurrentUserInfo(token) {
     throw error
   }
 }
+
+/**
+ * Upload a book file to the backend
+ * @param {File} file - The PDF file to upload
+ * @param {string} token - Clerk JWT token
+ */
+export async function uploadBook(file, token) {
+  // Build the URL - for production use relative URLs, for dev use full URL
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/books/upload` : '/api/books/upload'
+  
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const headers = {}
+  
+  // Add authorization header
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Upload Error: ${response.status} - ${error}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get user's books from the backend
+ * @param {string} token - Clerk JWT token
+ */
+export async function getUserBooks(token) {
+  try {
+    const response = await authenticatedFetch('/api/books', {
+      method: 'GET',
+    }, token)
+    
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Delete a book from the backend
+ * @param {string} bookId - Book ID to delete
+ * @param {string} token - Clerk JWT token
+ */
+export async function deleteBook(bookId, token) {
+  try {
+    const response = await authenticatedFetch(`/api/books/${bookId}`, {
+      method: 'DELETE',
+    }, token)
+    
+    return response
+  } catch (error) {
+    throw error
+  }
+}

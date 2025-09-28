@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
-import { UserButton, useUser, SignedOut, SignInButton } from '@clerk/clerk-react'
+import React, { useState, useEffect } from 'react'
+import { UserButton, useUser, SignedOut, SignInButton, useAuth } from '@clerk/clerk-react'
 import { Navigate } from 'react-router-dom'
 import BackendStatus from './BackendStatus'
+import { uploadBook, getUserBooks, deleteBook } from '../utils/api'
+import { useAuthSync } from '../hooks/useAuthSync'
 
 function DashboardHeader() {
   return (
@@ -23,9 +25,11 @@ function DashboardHeader() {
   )
 }
 
-function BookUpload() {
+function BookUpload({ onUploadSuccess }) {
   const [dragActive, setDragActive] = useState(false)
   const [uploadStatus, setUploadStatus] = useState('idle') // idle, uploading, success, error
+  const [errorMessage, setErrorMessage] = useState('')
+  const { getToken } = useAuth()
 
   const handleDrag = (e) => {
     e.preventDefault()
@@ -53,11 +57,14 @@ function BookUpload() {
     if (files && files[0]) {
       handleFile(files[0])
     }
+    // Reset the input value so the same file can be selected again
+    e.target.value = ''
   }
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     // Validate file type
     if (file.type !== 'application/pdf') {
+      setErrorMessage('Please upload a valid PDF file')
       setUploadStatus('error')
       setTimeout(() => setUploadStatus('idle'), 3000)
       return
@@ -65,17 +72,36 @@ function BookUpload() {
 
     // Validate file size (50MB limit)
     if (file.size > 50 * 1024 * 1024) {
+      setErrorMessage('File size must be less than 50MB')
       setUploadStatus('error')
       setTimeout(() => setUploadStatus('idle'), 3000)
       return
     }
 
-    // Simulate upload process
+    // Upload to backend
     setUploadStatus('uploading')
-    setTimeout(() => {
+    setErrorMessage('')
+    
+    try {
+      const token = await getToken()
+      if (!token) {
+        throw new Error('Authentication required')
+      }
+      
+      const result = await uploadBook(file, token)
       setUploadStatus('success')
+      
+      // Notify parent component about successful upload
+      if (onUploadSuccess) {
+        onUploadSuccess(result)
+      }
+      
       setTimeout(() => setUploadStatus('idle'), 3000)
-    }, 2000)
+    } catch (error) {
+      setErrorMessage(error.message || 'Upload failed')
+      setUploadStatus('error')
+      setTimeout(() => setUploadStatus('idle'), 5000)
+    }
   }
 
   const getUploadMessage = () => {
@@ -85,7 +111,7 @@ function BookUpload() {
       case 'success':
         return '✅ Book uploaded successfully!'
       case 'error':
-        return '❌ Please upload a valid PDF file (max 50MB)'
+        return `❌ ${errorMessage || 'Upload failed'}`
       default:
         return 'Drag & drop a PDF here or click to browse'
     }
@@ -125,7 +151,7 @@ function BookUpload() {
   )
 }
 
-function BookCard({ title, uploadDate, size }) {
+function BookCard({ id, title, uploadDate, size, onDelete }) {
   return (
     <div className="vr-book-card">
       <div className="vr-book-icon">📖</div>
@@ -136,29 +162,83 @@ function BookCard({ title, uploadDate, size }) {
           <span className="vr-book-size">{size}</span>
         </div>
       </div>
+      <button 
+        className="vr-book-delete"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete(id)
+        }}
+        title="Delete book"
+      >
+        🗑️
+      </button>
     </div>
   )
 }
 
-function BookLibrary() {
-  // Mock data - replace with API call later
-  const mockBooks = [
-    { id: 1, title: "The Great Gatsby", uploadDate: "2 days ago", size: "2.4 MB" },
-    { id: 2, title: "To Kill a Mockingbird", uploadDate: "1 week ago", size: "3.1 MB" },
-    { id: 3, title: "1984", uploadDate: "2 weeks ago", size: "2.8 MB" },
-  ]
+function BookLibrary({ books, onDeleteBook, refreshBooks }) {
+  const { getToken } = useAuth()
+  
+  const handleDeleteBook = async (bookId) => {
+    if (!confirm('Are you sure you want to delete this book?')) {
+      return
+    }
+    
+    try {
+      const token = await getToken()
+      if (!token) {
+        throw new Error('Authentication required')
+      }
+      
+      await deleteBook(bookId, token)
+      
+      // Refresh the books list
+      if (refreshBooks) {
+        refreshBooks()
+      }
+    } catch (error) {
+      alert('Failed to delete book: ' + error.message)
+    }
+  }
+  
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+  
+  const formatUploadDate = (dateString) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now - date)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 1) {
+      return 'Today'
+    } else if (diffDays === 2) {
+      return 'Yesterday'
+    } else if (diffDays <= 7) {
+      return `${diffDays - 1} days ago`
+    } else {
+      return date.toLocaleDateString()
+    }
+  }
 
   return (
     <div className="vr-library-section">
-      <h2 className="vr-library-title">Your Books ({mockBooks.length})</h2>
-      {mockBooks.length > 0 ? (
+      <h2 className="vr-library-title">Your Books ({books.length})</h2>
+      {books.length > 0 ? (
         <div className="vr-library-grid">
-          {mockBooks.map(book => (
+          {books.map(book => (
             <BookCard
               key={book.id}
+              id={book.id}
               title={book.title}
-              uploadDate={book.uploadDate}
-              size={book.size}
+              uploadDate={formatUploadDate(book.upload_date)}
+              size={formatFileSize(book.file_size)}
+              onDelete={handleDeleteBook}
             />
           ))}
         </div>
@@ -175,6 +255,36 @@ function BookLibrary() {
 
 export default function Dashboard() {
   const { user } = useUser()
+  const { getToken } = useAuth()
+  const [books, setBooks] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch books when component mounts
+  useEffect(() => {
+    fetchBooks()
+  }, [])
+
+  const fetchBooks = async () => {
+    try {
+      setLoading(true)
+      const token = await getToken()
+      if (!token) {
+        return
+      }
+      
+      const userBooks = await getUserBooks(token)
+      setBooks(userBooks)
+    } catch (error) {
+      console.error('Failed to fetch books:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUploadSuccess = (newBook) => {
+    // Add the new book to the list
+    setBooks(prevBooks => [newBook, ...prevBooks])
+  }
 
   return (
     <>
@@ -190,8 +300,17 @@ export default function Dashboard() {
         <main className="vr-dashboard">
           <div className="vr-container">
             <BackendStatus />
-            <BookUpload />
-            <BookLibrary />
+            <BookUpload onUploadSuccess={handleUploadSuccess} />
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                Loading your books...
+              </div>
+            ) : (
+              <BookLibrary 
+                books={books} 
+                refreshBooks={fetchBooks}
+              />
+            )}
           </div>
         </main>
       </div>

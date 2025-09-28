@@ -161,6 +161,7 @@ body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, rgba(40,
   border-radius: 16px;
   transition: all 0.2s ease;
   cursor: pointer;
+  position: relative;
 }
 
 .vr-book-card:hover {
@@ -201,6 +202,31 @@ body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, rgba(40,
   content: '•';
   margin-left: 12px;
   opacity: 0.5;
+}
+
+.vr-book-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  padding: 8px;
+  border-radius: 6px;
+  color: #ff6b6b;
+}
+
+.vr-book-card:hover .vr-book-delete {
+  opacity: 0.7;
+}
+
+.vr-book-delete:hover {
+  opacity: 1;
+  background: rgba(255, 107, 107, 0.1);
+  transform: scale(1.1);
 }
 
 /* Empty State */
