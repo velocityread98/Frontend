@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useAuth } from '@clerk/clerk-react'
 import HomePage from './components/HomePage'
 import Dashboard from './components/Dashboard'
+import BookReader from './components/BookReader'
 import { useAuthSync } from './hooks/useAuthSync'
 
 // Loading component while Clerk initializes
@@ -37,6 +38,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/book/:bookId" element={<BookReader />} />
       </Routes>
     </Router>
   )

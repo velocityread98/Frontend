@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { UserButton, useUser, SignedOut, SignInButton, useAuth } from '@clerk/clerk-react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import BackendStatus from './BackendStatus'
 import { uploadBook, getUserBooks, deleteBook } from '../utils/api'
 import { useAuthSync } from '../hooks/useAuthSync'
@@ -151,9 +151,13 @@ function BookUpload({ onUploadSuccess }) {
   )
 }
 
-function BookCard({ id, title, uploadDate, size, onDelete }) {
+function BookCard({ id, title, uploadDate, size, onDelete, onOpen }) {
   return (
-    <div className="vr-book-card">
+    <div 
+      className="vr-book-card"
+      onClick={() => onOpen(id)}
+      style={{ cursor: 'pointer' }}
+    >
       <div className="vr-book-icon">📖</div>
       <div className="vr-book-info">
         <div className="vr-book-title">{title}</div>
@@ -178,6 +182,11 @@ function BookCard({ id, title, uploadDate, size, onDelete }) {
 
 function BookLibrary({ books, onDeleteBook, refreshBooks }) {
   const { getToken } = useAuth()
+  const navigate = useNavigate()
+  
+  const handleOpenBook = (bookId) => {
+    navigate(`/book/${bookId}`)
+  }
   
   const handleDeleteBook = async (bookId) => {
     if (!confirm('Are you sure you want to delete this book?')) {
@@ -239,6 +248,7 @@ function BookLibrary({ books, onDeleteBook, refreshBooks }) {
               uploadDate={formatUploadDate(book.upload_date)}
               size={formatFileSize(book.file_size)}
               onDelete={handleDeleteBook}
+              onOpen={handleOpenBook}
             />
           ))}
         </div>
