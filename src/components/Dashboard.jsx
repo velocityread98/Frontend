@@ -14,7 +14,9 @@ function DashboardHeader() {
           </span>
         </a>
         <nav className="vr-nav-auth">
-          <UserButton afterSignOutUrl="/" />
+          <UserButton 
+            afterSignOutUrl="/" 
+          />
         </nav>
       </div>
     </header>

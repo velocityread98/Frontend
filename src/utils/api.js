@@ -14,7 +14,6 @@ function getApiBaseUrl() {
   
   // For local development, use environment variable or localhost
   const localUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-  console.log('🏠 Local environment detected - using:', localUrl)
   return localUrl
 }
 
@@ -63,31 +62,13 @@ export async function notifyBackendLogin(token) {
       method: 'POST',
     }, token)
     
-    console.log('Backend login notification sent:', response)
     return response
   } catch (error) {
-    console.error('Failed to notify backend of login:', error)
     throw error
   }
 }
 
-/**
- * Call the backend logout endpoint when user logs out
- * @param {string} token - Clerk JWT token
- */
-export async function notifyBackendLogout(token) {
-  try {
-    const response = await authenticatedFetch('/api/auth/logout', {
-      method: 'POST',
-    }, token)
-    
-    console.log('Backend logout notification sent:', response)
-    return response
-  } catch (error) {
-    console.error('Failed to notify backend of logout:', error)
-    // Don't throw error for logout - it's not critical if backend notification fails
-  }
-}
+
 
 /**
  * Get current user info from backend
@@ -101,7 +82,6 @@ export async function getCurrentUserInfo(token) {
     
     return response
   } catch (error) {
-    console.error('Failed to get user info from backend:', error)
     throw error
   }
 }
