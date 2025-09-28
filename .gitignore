@@ -13,3 +13,6 @@ pnpm-debug.log*
 # Editor/OS
 .DS_Store
 .vscode/
+
+# Env files (do not commit secrets)
+.env*

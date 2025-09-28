@@ -1,4 +1,5 @@
 import React from 'react'
+import { SignInButton, SignUpButton, UserButton, SignedIn, SignedOut } from '@clerk/clerk-react'
 
 function Header() {
   return (
@@ -10,8 +11,18 @@ function Header() {
             <span className="vr-word-read">read</span>
           </span>
         </a>
-        <nav>
-          <button className="vr-btn vr-btn-primary">Sign in</button>
+        <nav className="vr-nav-auth">
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="vr-btn vr-btn-primary">Sign in</button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="vr-btn vr-btn-ghost">Sign up</button>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </nav>
       </div>
     </header>
