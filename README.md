@@ -32,7 +32,7 @@ Output goes to `dist/`, suitable for Azure Static Web Apps.
 This app is wired with Clerk for auth in a Vite/React setup.
 
 1. Install deps (already in this repo):
-	- `@clerk/clerk-react`
+	- `@clerk/clerk-react` 
 2. Create `.env.local` at the project root with:
 
 ```
