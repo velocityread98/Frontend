@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { UserButton, useUser, SignedOut, SignInButton } from '@clerk/clerk-react'
 import { Navigate } from 'react-router-dom'
+import BackendStatus from './BackendStatus'
 
 function DashboardHeader() {
   return (
@@ -186,6 +187,7 @@ export default function Dashboard() {
         
         <main className="vr-dashboard">
           <div className="vr-container">
+            <BackendStatus />
             <BookUpload />
             <BookLibrary />
           </div>
