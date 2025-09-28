@@ -151,3 +151,98 @@ export async function deleteBook(bookId, token) {
     throw error
   }
 }
+
+// ====== CHAT API FUNCTIONS ======
+
+/**
+ * Get all chat sessions for a book
+ * @param {string} bookId - Book ID
+ * @param {string} token - Clerk JWT token
+ */
+export async function getChatSessions(bookId, token) {
+  try {
+    const response = await authenticatedFetch(`/api/books/${bookId}/chats`, {
+      method: 'GET',
+    }, token)
+    
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Create a new chat session for a book
+ * @param {string} bookId - Book ID
+ * @param {string} title - Chat session title
+ * @param {string} token - Clerk JWT token
+ */
+export async function createChatSession(bookId, title = 'New Chat', token) {
+  try {
+    const response = await authenticatedFetch(`/api/books/${bookId}/chats`, {
+      method: 'POST',
+      body: JSON.stringify({ title })
+    }, token)
+    
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Get all messages for a chat session
+ * @param {string} bookId - Book ID
+ * @param {string} chatId - Chat session ID
+ * @param {string} token - Clerk JWT token
+ */
+export async function getChatMessages(bookId, chatId, token) {
+  try {
+    const response = await authenticatedFetch(`/api/books/${bookId}/chats/${chatId}/messages`, {
+      method: 'GET',
+    }, token)
+    
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Send a message to a chat session
+ * @param {string} bookId - Book ID
+ * @param {string} chatId - Chat session ID
+ * @param {string} message - Message content
+ * @param {string} token - Clerk JWT token
+ */
+export async function sendChatMessage(bookId, chatId, message, token) {
+  try {
+    const response = await authenticatedFetch(`/api/books/${bookId}/chats/${chatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    }, token)
+    
+    return response
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
+ * Delete a chat session
+ * @param {string} bookId - Book ID
+ * @param {string} chatId - Chat session ID
+ * @param {string} token - Clerk JWT token
+ */
+export async function deleteChatSession(bookId, chatId, token) {
+  try {
+    await authenticatedFetch(`/api/books/${bookId}/chats/${chatId}`, {
+      method: 'DELETE',
+    }, token)
+    
+    // Return success response since DELETE returns 204 No Content
+    return { success: true }
+  } catch (error) {
+    throw error
+  }
+}

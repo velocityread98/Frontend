@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { UserButton, useAuth } from '@clerk/clerk-react'
 import { getUserBooks } from '../utils/api'
+import ChatSessionManager from './ChatSessionManager'
+import ChatInterface from './ChatInterface'
 
 function BookReaderHeader({ book, onBack }) {
   return (
@@ -140,114 +142,7 @@ function PDFViewer({ book }) {
   )
 }
 
-function ChatInterface({ book }) {
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'system',
-      content: `Welcome! I'm here to help you understand "${book?.title || 'this book'}". Ask me anything about the content, characters, themes, or concepts.`,
-      timestamp: new Date()
-    }
-  ])
-  const [inputMessage, setInputMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
-
-    const userMessage = {
-      id: Date.now(),
-      type: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setInputMessage('')
-    setIsLoading(true)
-
-    // Simulate AI response (replace with actual API call later)
-    setTimeout(() => {
-      const botMessage = {
-        id: Date.now() + 1,
-        type: 'assistant',
-        content: `I'd be happy to help you with that question about "${book?.title}". This is a placeholder response - AI integration coming soon!`,
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, botMessage])
-      setIsLoading(false)
-    }, 1000)
-  }
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }
-
-  return (
-    <div className="vr-chat-interface">
-      <div className="vr-chat-header">
-        <h3>AI Reading Assistant</h3>
-        <div className="vr-chat-status">
-          <span className="vr-status-dot"></span>
-          Ready to help
-        </div>
-      </div>
-      
-      <div className="vr-chat-messages">
-        {messages.map(message => (
-          <div key={message.id} className={`vr-message vr-message-${message.type}`}>
-            <div className="vr-message-content">
-              {message.content}
-            </div>
-            <div className="vr-message-time">
-              {formatTime(message.timestamp)}
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="vr-message vr-message-assistant vr-message-loading">
-            <div className="vr-message-content">
-              <div className="vr-typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="vr-chat-input">
-        <div className="vr-input-container">
-          <textarea
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask me anything about this book..."
-            className="vr-message-input"
-            rows="1"
-            disabled={isLoading}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || isLoading}
-            className="vr-send-button"
-            title="Send message"
-          >
-            <span className="vr-send-icon">➤</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+// ChatInterface component moved to separate file
 
 export default function BookReader() {
   const { bookId } = useParams()
@@ -256,6 +151,8 @@ export default function BookReader() {
   const [book, setBook] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [currentChatSession, setCurrentChatSession] = useState(null)
+  const [refreshSessions, setRefreshSessions] = useState(0)
 
   useEffect(() => {
     fetchBookDetails()
@@ -292,6 +189,20 @@ export default function BookReader() {
     navigate('/dashboard')
   }
 
+  const handleChatSelect = (session) => {
+    setCurrentChatSession(session)
+  }
+
+  const handleChatCreate = (newSession) => {
+    setCurrentChatSession(newSession)
+    setRefreshSessions(prev => prev + 1)
+  }
+
+  const handleSessionUpdate = (sessionId) => {
+    // Trigger refresh of chat sessions list
+    setRefreshSessions(prev => prev + 1)
+  }
+
   if (loading) {
     return (
       <div className="vr-reader-loading">
@@ -323,7 +234,24 @@ export default function BookReader() {
             <PDFViewer book={book} />
           </div>
           <div className="vr-reader-right">
-            <ChatInterface book={book} />
+            <div className="vr-chat-container">
+              <div className="vr-chat-sidebar">
+                <ChatSessionManager
+                  book={book}
+                  currentChatId={currentChatSession?.id}
+                  onChatSelect={handleChatSelect}
+                  onChatCreate={handleChatCreate}
+                  key={refreshSessions} // Force refresh when needed
+                />
+              </div>
+              <div className="vr-chat-main">
+                <ChatInterface
+                  book={book}
+                  currentChatSession={currentChatSession}
+                  onSessionUpdate={handleSessionUpdate}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </main>
