@@ -26,40 +26,103 @@ function BookReaderHeader({ book, onBack }) {
 }
 
 function PDFViewer({ book }) {
-  const getFileUrl = () => {
-    if (!book) return null
-    
-    // If it's already a full URL (Azure storage), use it directly
-    if (book.file_path && book.file_path.startsWith('https://')) {
-      return book.file_path
+  const [pdfUrl, setPdfUrl] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const { getToken } = useAuth()
+
+  useEffect(() => {
+    if (book) {
+      fetchPdfFile()
     }
-    
-    // Use the same API base URL logic as the API utility
-    const hostname = window.location.hostname
-    
-    if (hostname.includes('azurestaticapps.net')) {
-      // In production (Azure Static Web Apps), use relative URLs
-      return `/api/books/${book.id}/file`
-    } else {
-      // For local development
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-      return `${baseUrl}/api/books/${book.id}/file`
+  }, [book])
+
+  const fetchPdfFile = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // If it's already a full URL (Azure storage), use it directly
+      if (book.file_path && book.file_path.startsWith('https://')) {
+        setPdfUrl(book.file_path)
+        setLoading(false)
+        return
+      }
+
+      // Otherwise, fetch the file through our authenticated endpoint
+      const token = await getToken()
+      if (!token) {
+        setError('Authentication required')
+        setLoading(false)
+        return
+      }
+
+      const hostname = window.location.hostname
+      let baseUrl = ''
+      
+      if (hostname.includes('azurestaticapps.net')) {
+        baseUrl = ''
+      } else {
+        baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+      }
+      
+      const fileUrl = baseUrl ? `${baseUrl}/api/books/${book.id}/file` : `/api/books/${book.id}/file`
+      
+      const response = await fetch(fileUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      setPdfUrl(url)
+    } catch (err) {
+      console.error('Error fetching PDF:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
+
+  // Cleanup blob URL when component unmounts
+  useEffect(() => {
+    return () => {
+      if (pdfUrl && pdfUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfUrl)
+      }
+    }
+  }, [pdfUrl])
 
   return (
     <div className="vr-pdf-viewer">
       <div className="vr-pdf-container">
-        {book ? (
+        {loading ? (
+          <div className="vr-pdf-loading">
+            <div className="vr-loading-spinner"></div>
+            <p>Loading PDF...</p>
+          </div>
+        ) : error ? (
+          <div className="vr-pdf-error">
+            <p>Error loading PDF: {error}</p>
+            <button onClick={fetchPdfFile} className="vr-retry-button">
+              Retry
+            </button>
+          </div>
+        ) : pdfUrl ? (
           <iframe
-            src={`${getFileUrl()}#toolbar=1&navpanes=1&scrollbar=1`}
-            title={book.title}
+            src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+            title={book?.title || 'PDF Viewer'}
             className="vr-pdf-iframe"
           />
         ) : (
           <div className="vr-pdf-loading">
             <div className="vr-loading-spinner"></div>
-            <p>Loading PDF...</p>
+            <p>Preparing PDF...</p>
           </div>
         )}
       </div>

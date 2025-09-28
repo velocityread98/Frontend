@@ -374,13 +374,35 @@ body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, rgba(40,
   background: #fff;
 }
 
-.vr-pdf-loading {
+.vr-pdf-loading,
+.vr-pdf-error {
   height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: var(--muted);
+}
+
+.vr-pdf-error {
+  color: #ef4444;
+}
+
+.vr-retry-button {
+  background: var(--btn);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 12px;
+  transition: all 0.2s ease;
+}
+
+.vr-retry-button:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
 }
 
 .vr-loading-spinner {
