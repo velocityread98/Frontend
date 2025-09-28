@@ -1,7 +1,26 @@
 // API utilities for Velocity Read frontend
 
-// Get the backend URL from environment variables or default to local
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+/**
+ * Get the appropriate backend URL based on environment
+ */
+function getApiBaseUrl() {
+  const hostname = window.location.hostname
+  
+  // If we're in production (deployed to Azure Static Web Apps)
+  if (hostname.includes('azurestaticapps.net')) {
+    console.log('🌐 Production environment detected - using linked backend')
+    // Use relative URLs - the backend is linked to the static web app
+    return ''
+  }
+  
+  // For local development, use environment variable or localhost
+  const localUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+  console.log('🏠 Local environment detected - using:', localUrl)
+  return localUrl
+}
+
+const API_BASE_URL = getApiBaseUrl()
+console.log('🔧 API Base URL:', API_BASE_URL || 'relative URLs')
 
 /**
  * Make authenticated API calls to the backend
@@ -10,7 +29,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
  * @param {string} token - Clerk JWT token
  */
 export async function authenticatedFetch(endpoint, options = {}, token = null) {
-  const url = `${API_BASE_URL}${endpoint}`
+  // Build the URL - for production use relative URLs, for dev use full URL
+  const url = API_BASE_URL ? `${API_BASE_URL}${endpoint}` : endpoint
   
   const headers = {
     'Content-Type': 'application/json',
