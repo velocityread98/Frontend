@@ -42,7 +42,7 @@ function PDFViewer({ book }) {
       setLoading(true)
       setError(null)
 
-      // Get the token for authentication
+      // Get the token and create authenticated URL
       const token = await getToken()
       if (!token) {
         setError('Authentication required')
@@ -50,6 +50,7 @@ function PDFViewer({ book }) {
         return
       }
 
+      // Fetch the PDF through our backend with authentication
       const hostname = window.location.hostname
       let baseUrl = ''
       
@@ -59,15 +60,25 @@ function PDFViewer({ book }) {
         baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       }
       
-      // Use the view endpoint that accepts token as query parameter for iframe
-      const fileUrl = baseUrl 
-        ? `${baseUrl}/api/books/${book.id}/view?token=${encodeURIComponent(token)}`
-        : `/api/books/${book.id}/view?token=${encodeURIComponent(token)}`
+      const apiUrl = baseUrl ? `${baseUrl}/api/books/${book.id}/file` : `/api/books/${book.id}/file`
       
-      setPdfUrl(fileUrl)
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch PDF: ${response.status}`)
+      }
+
+      // Create blob URL from response
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      setPdfUrl(url)
       setLoading(false)
     } catch (err) {
-      console.error('Error preparing PDF:', err)
+      console.error('Error fetching PDF:', err)
       setError(err.message)
       setLoading(false)
     }
