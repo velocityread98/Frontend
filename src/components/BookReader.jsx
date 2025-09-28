@@ -50,7 +50,7 @@ function PDFViewer({ book }) {
         return
       }
 
-      // Fetch the PDF through our backend with authentication
+      // Get signed URL from backend
       const hostname = window.location.hostname
       let baseUrl = ''
       
@@ -64,18 +64,33 @@ function PDFViewer({ book }) {
       
       const response = await fetch(apiUrl, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`)
+        throw new Error(`Failed to get file URL: ${response.status}`)
       }
 
-      // Create blob URL from response
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      setPdfUrl(url)
+      const contentType = response.headers.get('content-type')
+      
+      // Check if response is JSON (signed URL) or PDF (direct file)
+      if (contentType && contentType.includes('application/json')) {
+        // Handle signed URL response
+        const data = await response.json()
+        if (data.url) {
+          setPdfUrl(data.url)
+        } else {
+          throw new Error('No URL provided in response')
+        }
+      } else {
+        // Handle direct PDF response (local files)
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        setPdfUrl(url)
+      }
+      
       setLoading(false)
     } catch (err) {
       console.error('Error fetching PDF:', err)
@@ -84,7 +99,7 @@ function PDFViewer({ book }) {
     }
   }
 
-  // Cleanup blob URL when component unmounts
+  // Cleanup blob URL when component unmounts (only for blob URLs, not SAS URLs)
   useEffect(() => {
     return () => {
       if (pdfUrl && pdfUrl.startsWith('blob:')) {
