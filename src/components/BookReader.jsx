@@ -34,9 +34,17 @@ function PDFViewer({ book }) {
       return book.file_path
     }
     
-    // Otherwise, use our backend endpoint to serve the file
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-    return `${baseUrl}/api/books/${book.id}/file`
+    // Use the same API base URL logic as the API utility
+    const hostname = window.location.hostname
+    
+    if (hostname.includes('azurestaticapps.net')) {
+      // In production (Azure Static Web Apps), use relative URLs
+      return `/api/books/${book.id}/file`
+    } else {
+      // For local development
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+      return `${baseUrl}/api/books/${book.id}/file`
+    }
   }
 
   return (
