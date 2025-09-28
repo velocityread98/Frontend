@@ -42,14 +42,7 @@ function PDFViewer({ book }) {
       setLoading(true)
       setError(null)
 
-      // If it's already a full URL (Azure storage), use it directly
-      if (book.file_path && book.file_path.startsWith('https://')) {
-        setPdfUrl(book.file_path)
-        setLoading(false)
-        return
-      }
-
-      // Otherwise, fetch the file through our authenticated endpoint
+      // Get the token for authentication
       const token = await getToken()
       if (!token) {
         setError('Authentication required')
@@ -66,25 +59,16 @@ function PDFViewer({ book }) {
         baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
       }
       
-      const fileUrl = baseUrl ? `${baseUrl}/api/books/${book.id}/file` : `/api/books/${book.id}/file`
+      // Use the view endpoint that accepts token as query parameter for iframe
+      const fileUrl = baseUrl 
+        ? `${baseUrl}/api/books/${book.id}/view?token=${encodeURIComponent(token)}`
+        : `/api/books/${book.id}/view?token=${encodeURIComponent(token)}`
       
-      const response = await fetch(fileUrl, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch PDF: ${response.status}`)
-      }
-
-      const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      setPdfUrl(url)
+      setPdfUrl(fileUrl)
+      setLoading(false)
     } catch (err) {
-      console.error('Error fetching PDF:', err)
+      console.error('Error preparing PDF:', err)
       setError(err.message)
-    } finally {
       setLoading(false)
     }
   }
