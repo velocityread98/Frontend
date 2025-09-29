@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { getChatSessions, createChatSession, deleteChatSession } from '../utils/api'
 
-function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate }) {
+function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate, onCloseSidebar, onSessionsFetched, refreshTrigger, hasNoChats, createDefaultChat }) {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -15,6 +15,13 @@ function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate })
     }
   }, [book])
 
+  // Handle refresh trigger
+  useEffect(() => {
+    if (refreshTrigger > 0 && book) {
+      fetchChatSessions()
+    }
+  }, [refreshTrigger, book])
+
   const fetchChatSessions = async () => {
     try {
       setLoading(true)
@@ -23,7 +30,13 @@ function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate })
       if (!token) return
 
       const response = await getChatSessions(book.id, token)
-      setSessions(response.sessions || [])
+      const sessionsList = response.sessions || []
+      setSessions(sessionsList)
+      
+      // Notify parent component with fetched sessions
+      if (onSessionsFetched) {
+        onSessionsFetched(sessionsList)
+      }
     } catch (err) {
       console.error('Failed to fetch chat sessions:', err)
       setError('Failed to load chat sessions')
@@ -41,6 +54,11 @@ function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate })
       const newSession = await createChatSession(book.id, 'New Chat', token)
       setSessions(prev => [newSession, ...prev])
       onChatCreate(newSession)
+      
+      // Close sidebar to take user back to chat interface
+      if (onCloseSidebar) {
+        onCloseSidebar()
+      }
     } catch (err) {
       console.error('Failed to create chat session:', err)
       setError('Failed to create new chat')
@@ -49,28 +67,29 @@ function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate })
     }
   }
 
-  const handleDeleteChat = async (chatId, event) => {
-    event.stopPropagation()
+  const handleDeleteChat = async (sessionId, e) => {
+    e.stopPropagation()
     
-    if (!confirm('Are you sure you want to delete this chat? This action cannot be undone.')) {
-      return
-    }
-
     try {
       const token = await getToken()
       if (!token) return
 
-      await deleteChatSession(book.id, chatId, token)
-      setSessions(prev => prev.filter(session => session.id !== chatId))
+      await deleteChatSession(book.id, sessionId, token)
+      setSessions(prev => prev.filter(session => session.id !== sessionId))
       
-      // If the deleted chat was selected, clear selection
-      if (currentChatId === chatId) {
+      // If we deleted the current session, clear it
+      if (currentChatId === sessionId) {
         onChatSelect(null)
       }
     } catch (err) {
       console.error('Failed to delete chat session:', err)
-      setError('Failed to delete chat')
+      setError('Failed to delete chat session')
     }
+  }
+
+  // Method to refresh sessions (to be called when titles are updated)
+  const refreshSessions = () => {
+    fetchChatSessions()
   }
 
   const formatDate = (dateString) => {
@@ -107,18 +126,25 @@ function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate })
   return (
     <div className="vr-chat-sessions">
       <div className="vr-chat-sessions-header">
-        <h3>Chat Sessions</h3>
-        <button
-          onClick={handleCreateChat}
-          disabled={creating}
-          className="vr-new-chat-button"
-          title="Start new chat"
-        >
-          {creating ? '...' : '+'}
-        </button>
-      </div>
-
-      {error && (
+        <h4>Chat Sessions</h4>
+        <div className="vr-sessions-header-buttons">
+          <button
+            onClick={handleCreateChat}
+            disabled={creating}
+            className="vr-new-chat-button"
+            title="Create new chat"
+          >
+            +
+          </button>
+          <button
+            onClick={onCloseSidebar}
+            className="vr-close-sidebar-button"
+            title="Close sessions"
+          >
+            ×
+          </button>
+        </div>
+      </div>      {error && (
         <div className="vr-chat-error">
           <p>{error}</p>
           <button onClick={fetchChatSessions} className="vr-retry-button">
@@ -128,23 +154,36 @@ function ChatSessionManager({ book, currentChatId, onChatSelect, onChatCreate })
       )}
 
       <div className="vr-chat-sessions-list">
-        {sessions.length === 0 ? (
-          <div className="vr-no-chats">
-            <p>No chat sessions yet</p>
+        {sessions.length > 0 && (
+          <div className="vr-new-chat-section">
             <button
               onClick={handleCreateChat}
               disabled={creating}
-              className="vr-create-first-chat"
+              className="vr-new-chat-full-button"
             >
-              Start your first chat
+              <span className="vr-new-chat-icon">+</span>
+              <span>New Chat</span>
             </button>
+          </div>
+        )}
+        
+        {sessions.length === 0 && !currentChatId ? (
+          <div className="vr-no-chats">
+            <p>Loading your chats...</p>
+          </div>
+        ) : sessions.length === 0 && currentChatId ? (
+          <div className="vr-no-chats">
+            <p>Start chatting to see your conversation history here</p>
           </div>
         ) : (
           sessions.map(session => (
             <div
               key={session.id}
               className={`vr-chat-session-item ${currentChatId === session.id ? 'active' : ''}`}
-              onClick={() => onChatSelect(session)}
+              onClick={() => {
+                onChatSelect(session);
+                if (onCloseSidebar) onCloseSidebar();
+              }}
             >
               <div className="vr-chat-session-content">
                 <div className="vr-chat-session-title">

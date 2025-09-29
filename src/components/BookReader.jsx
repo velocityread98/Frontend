@@ -153,6 +153,8 @@ export default function BookReader() {
   const [error, setError] = useState(null)
   const [currentChatSession, setCurrentChatSession] = useState(null)
   const [refreshSessions, setRefreshSessions] = useState(0)
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
+  const [sessionsFetched, setSessionsFetched] = useState(false)
 
   useEffect(() => {
     fetchBookDetails()
@@ -198,9 +200,39 @@ export default function BookReader() {
     setRefreshSessions(prev => prev + 1)
   }
 
-  const handleSessionUpdate = (sessionId) => {
-    // Trigger refresh of chat sessions list
-    setRefreshSessions(prev => prev + 1)
+  const handleSessionsFetched = (sessions) => {
+    setSessionsFetched(true)
+    if (sessions.length > 0 && !currentChatSession) {
+      // Select the latest chat (first in the list as they're sorted by updated_at desc)
+      setCurrentChatSession(sessions[0])
+    } else if (sessions.length === 0 && !currentChatSession) {
+      // Create default chat if no sessions exist
+      createDefaultChat()
+    }
+  }
+
+  const handleSessionUpdate = (sessionId, shouldRefresh = false) => {
+    // Only refresh sessions list when explicitly needed (like title updates)
+    if (shouldRefresh) {
+      setRefreshSessions(prev => prev + 1)
+    }
+  }
+
+  const createDefaultChat = () => {
+    // Create a temporary default chat that will be saved when user sends first message
+    const defaultChat = {
+      id: 'temp-default',
+      title: 'New Chat',
+      is_temporary: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      message_count: 0
+    }
+    setCurrentChatSession(defaultChat)
+  }
+
+  const toggleSidebar = () => {
+    setIsSidebarExpanded(prev => !prev)
   }
 
   if (loading) {
@@ -235,20 +267,28 @@ export default function BookReader() {
           </div>
           <div className="vr-reader-right">
             <div className="vr-chat-container">
-              <div className="vr-chat-sidebar">
-                <ChatSessionManager
-                  book={book}
-                  currentChatId={currentChatSession?.id}
-                  onChatSelect={handleChatSelect}
-                  onChatCreate={handleChatCreate}
-                  key={refreshSessions} // Force refresh when needed
-                />
-              </div>
               <div className="vr-chat-main">
                 <ChatInterface
                   book={book}
                   currentChatSession={currentChatSession}
                   onSessionUpdate={handleSessionUpdate}
+                  isSidebarExpanded={isSidebarExpanded}
+                  onToggleSidebar={toggleSidebar}
+                  onChatCreate={handleChatCreate}
+                  createDefaultChat={createDefaultChat}
+                />
+              </div>
+              <div className={`vr-chat-sidebar ${isSidebarExpanded ? 'expanded' : 'collapsed'}`}>
+                <ChatSessionManager
+                  book={book}
+                  currentChatId={currentChatSession?.id}
+                  onChatSelect={handleChatSelect}
+                  onChatCreate={handleChatCreate}
+                  onCloseSidebar={() => setIsSidebarExpanded(false)}
+                  onSessionsFetched={handleSessionsFetched}
+                  refreshTrigger={refreshSessions}
+                  hasNoChats={!currentChatSession}
+                  createDefaultChat={createDefaultChat}
                 />
               </div>
             </div>

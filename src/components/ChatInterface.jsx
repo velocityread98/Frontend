@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@clerk/clerk-react'
-import { getChatMessages, sendChatMessage } from '../utils/api'
+import { getChatMessages, sendChatMessage, createChatSession } from '../utils/api'
 
-function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
+function ChatInterface({ book, currentChatSession, onSessionUpdate, isSidebarExpanded, onToggleSidebar, onChatCreate, createDefaultChat }) {
   const [messages, setMessages] = useState([])
   const [inputMessage, setInputMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -13,18 +13,21 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
 
   // Load messages when chat session changes
   useEffect(() => {
-    if (currentChatSession) {
+    if (currentChatSession && !currentChatSession.is_temporary) {
       loadMessages()
-    } else {
-      // Show welcome message when no chat is selected
+    } else if (currentChatSession && currentChatSession.is_temporary) {
+      // Show welcome message for temporary chat
       setMessages([{
         id: 'welcome',
         sender_type: 'assistant',
-        content: `Welcome! I'm here to help you understand "${book?.title || 'this book'}". Create a new chat session to start asking questions about the content, characters, themes, or concepts.`,
+        content: `Welcome! I'm here to help you understand "${book?.title || 'this book'}". Start by asking me anything about the content, characters, themes, or concepts.`,
         created_at: new Date().toISOString()
       }])
+    } else if (!currentChatSession && createDefaultChat) {
+      // Create default chat if none exist
+      createDefaultChat()
     }
-  }, [currentChatSession, book])
+  }, [currentChatSession, book, createDefaultChat])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -63,15 +66,34 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
       const token = await getToken()
       if (!token) return
 
-      const response = await sendChatMessage(book.id, currentChatSession.id, inputMessage.trim(), token)
+      let sessionId = currentChatSession.id
+      
+      let isFirstMessage = false
+      
+      // If this is a temporary chat, create a real chat session first
+      if (currentChatSession.is_temporary) {
+        const newSession = await createChatSession(book.id, 'New Chat', token)
+        sessionId = newSession.id
+        isFirstMessage = true // This will be the first message in the new session
+        
+        // Update the current session to the real one
+        if (onChatCreate) {
+          onChatCreate(newSession)
+        }
+      } else {
+        // Check if this is the first message in an existing session
+        isFirstMessage = messages.length <= 1 // Only welcome message exists
+      }
+
+      const response = await sendChatMessage(book.id, sessionId, inputMessage.trim(), token)
       
       // Add both user and assistant messages to the UI
       setMessages(prev => [...prev, response.user_message, response.assistant_message])
       setInputMessage('')
       
-      // Notify parent component that session was updated
+      // Only refresh sessions list if this was the first message (to update title)
       if (onSessionUpdate) {
-        onSessionUpdate(currentChatSession.id)
+        onSessionUpdate(sessionId, isFirstMessage)
       }
 
     } catch (err) {
@@ -143,11 +165,22 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
   return (
     <div className="vr-chat-interface">
       <div className="vr-chat-header">
-        <h3>AI Reading Assistant</h3>
-        <div className="vr-chat-status">
-          <span className={`vr-status-dot ${currentChatSession ? 'active' : 'inactive'}`}></span>
-          {currentChatSession ? 'Connected' : 'Select or create a chat'}
+        <div className="vr-chat-header-left">
+          <h3>AI Reading Assistant</h3>
+          <div className="vr-chat-status">
+            <span className={`vr-status-dot ${currentChatSession ? 'active' : 'inactive'}`}></span>
+            {currentChatSession ? 'Connected' : 'Select or create a chat'}
+          </div>
         </div>
+        <button 
+          className="vr-sessions-toggle-icon"
+          onClick={onToggleSidebar}
+          title={isSidebarExpanded ? 'Hide chat sessions' : 'Show chat sessions'}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 6H21M8 12H21M8 18H21M3 6H3.01M3 12H3.01M3 18H3.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       {error && (
@@ -159,11 +192,17 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
         </div>
       )}
 
-      <div className="vr-chat-messages">
+      <div className="vr-messages-area">
         {loadingMessages ? (
           <div className="vr-messages-loading">
             <div className="vr-loading-spinner"></div>
             <p>Loading messages...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="vr-chat-empty-state">
+            <div className="vr-empty-icon">💬</div>
+            <h4>Start a conversation</h4>
+            <p>Ask me anything about "{book?.title}". I can help you understand characters, themes, plot points, and more!</p>
           </div>
         ) : (
           <>
@@ -173,12 +212,12 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
                   <span>{formatDate(group.date)}</span>
                 </div>
                 {group.messages.map(message => (
-                  <div key={message.id} className={`vr-message vr-message-${message.sender_type}`}>
+                  <div key={message.id} className={`vr-chat-message vr-message-${message.sender_type}`}>
                     <div className="vr-message-content">
                       {message.content}
-                    </div>
-                    <div className="vr-message-time">
-                      {formatTime(message.created_at)}
+                      <div className="vr-message-timestamp">
+                        {formatTime(message.created_at)}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -186,7 +225,7 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
             ))}
             
             {isLoading && (
-              <div className="vr-message vr-message-assistant vr-message-loading">
+              <div className="vr-chat-message vr-message-assistant">
                 <div className="vr-message-content">
                   <div className="vr-typing-indicator">
                     <span></span>
@@ -201,14 +240,14 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
         )}
       </div>
 
-      <div className="vr-chat-input">
-        <div className="vr-input-container">
+      <div className="vr-chat-input-area">
+        <div className="vr-chat-input-container">
           <textarea
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={currentChatSession ? "Ask me anything about this book..." : "Create a chat session to start messaging"}
-            className="vr-message-input"
+            placeholder={currentChatSession ? "Ask me anything about this book..." : "Loading..."}
+            className="vr-chat-input"
             rows="1"
             disabled={isLoading || !currentChatSession}
           />
@@ -218,9 +257,14 @@ function ChatInterface({ book, currentChatSession, onSessionUpdate }) {
             className="vr-send-button"
             title="Send message"
           >
-            <span className="vr-send-icon">➤</span>
+            ➤
           </button>
         </div>
+        {!currentChatSession && (
+          <div className="vr-input-hint">
+            Preparing your chat session...
+          </div>
+        )}
       </div>
     </div>
   )
